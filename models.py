@@ -17,18 +17,21 @@ class User(Base):
     tasks = relationship('Task', back_populates='user')
     
     def __repr__(self):
-        return f"<User(id={self.id}, name={self.name}, phone={self.phone})>"
+        return f"User(id={self.id}, name={self.name}, phone={self.phone})"
 
 
 class Task(Base):
     __tablename__ = 'tasks'
 
     id = Column(Integer, primary_key=True)
-    description = Column(String(255), nullable=False)
+    name = Column(String(255), nullable=False)
     is_completed = Column(Boolean, default=False)
     user_id = Column(BigInteger, ForeignKey('users.id'))
     user = relationship('User', back_populates='tasks')
     tags = relationship('Tag', secondary='task_tags', back_populates='tasks')
+
+    def __repr__(self):
+        return f"Task(id={self.id}, name={self.name}, is_completed={self.is_completed})"
 
 
 
@@ -38,6 +41,9 @@ class Tag(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(255), unique=True, nullable=False)
     tasks = relationship('Task', secondary='task_tags', back_populates='tags')
+
+    def __repr__(self):
+        return f"Tag(id={self.id}, name={self.name})"
 
 
 

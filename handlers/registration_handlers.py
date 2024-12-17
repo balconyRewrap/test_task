@@ -1,10 +1,17 @@
-# TODO: ADD DOCSTRING
+"""
+This module contains handlers for the user registration process using the aiogram framework.
+
+Handlers:
+    handle_name: Handles the user's name input during the registration process.
+    handle_phone: Handles the phone number input from the user during the registration process.
+"""
 import re
 
 from aiogram import Router, types
 from aiogram.fsm.context import FSMContext
 
 from database_manager import add_user, get_user_by_id
+from handlers.basic_handlers.basic_state import start_menu
 from handlers.states_groups import RegistrationStates
 from models import User
 from temp_database_manager import TempDatabaseManager
@@ -12,25 +19,18 @@ from temp_database_manager import TempDatabaseManager
 registration_router: Router = Router()
 
 
-async def _complete_registration(user_id: int, user_name: str, phone: str, message: types.Message, state: FSMContext):
-    """Completes the registration by storing user data and sending confirmation."""
-    await add_user(user_id, user_name, phone)
-    user_data = await get_user_by_id(user_id)
-
-    if user_data is None:
-        await message.answer("Error: Failed to register user.")
-        return
-
-    user: User = user_data
-    await message.answer(
-        f"Registration Successful! Your entered details:\nName: {user.name}\nPhone: {user.phone}",
-    )
-    await state.set_state(RegistrationStates.registered)
-
-
 @registration_router.message(RegistrationStates.awaiting_name)
 async def handle_name(message: types.Message, state: FSMContext):
-    # TODO: ADD DOCSTRING
+    """
+    Handles the user's name input during the registration process.
+
+    This function is triggered when the user sends a message containing their name.
+    It validates the input, stores the name temporarily, and prompts the user to enter their phone number.
+
+    Args:
+        message (types.Message): The message object containing the user's input.
+        state (FSMContext): The finite state machine context for managing user states.
+    """
     if message.from_user is None:
         await message.answer("Ошибка: не удалось получить информацию о пользователе.")
         return
@@ -49,7 +49,13 @@ async def handle_name(message: types.Message, state: FSMContext):
 
 @registration_router.message(RegistrationStates.awaiting_phone)
 async def handle_phone(message: types.Message, state: FSMContext):
-    # TODO: ADD DOCSTRING
+    """
+    Handles the phone number input from the user during the registration process.
+
+    Args:
+        message (types.Message): The message object containing the user's input.
+        state (FSMContext): The finite state machine context for the current user.
+    """
     if message.from_user is None:
         await message.answer("Ошибка: не удалось получить информацию о пользователе.")
         return
@@ -80,11 +86,29 @@ async def _is_valid_phone(phone: str) -> bool:
 
 async def _store_temp_user_data(user_id: int, field: str, temp_value: str):
     """Stores temporary user data."""
-    temp_database_manager = TempDatabaseManager()
-    await temp_database_manager.set_user_temp_value_by_name(user_id, field, temp_value)
+    temp_db = TempDatabaseManager()
+    await temp_db.set_user_temp_value_by_name(user_id, field, temp_value)
 
 
 async def _get_user_name(user_id: int) -> str:
     """Retrieves the user's name from temporary storage."""
-    temp_database_manager = TempDatabaseManager()
-    return await temp_database_manager.get_user_temp_value_by_name(user_id, "name")
+    temp_db = TempDatabaseManager()
+    return await temp_db.get_user_temp_value_by_name(user_id, "name")
+
+
+async def _complete_registration(user_id: int, user_name: str, phone: str, message: types.Message, state: FSMContext):
+    """Completes the registration by storing user data and sending confirmation."""
+    await add_user(user_id, user_name, phone)
+    user_data = await get_user_by_id(user_id)
+    temp_db = TempDatabaseManager()
+    await temp_db.clear_user_data_from_redis(user_id)
+
+    if user_data is None:
+        await message.answer("Error: Failed to register user.")
+        return
+
+    user: User = user_data
+    await message.answer(
+        f"Registration Successful! Your entered details:\nName: {user.name}\nPhone: {user.phone}",
+    )
+    await state.set_state(start_menu)

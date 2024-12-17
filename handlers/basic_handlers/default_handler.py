@@ -1,5 +1,5 @@
 """
-This module defines a basic message handler for an aiogram-based bot.
+This module defines a defaul message handler for an aiogram-based bot.
 
 Attributes:
     basic_router (Router): An instance of aiogram's Router used to register message handlers.
@@ -9,10 +9,10 @@ Functions:
 """
 from aiogram import Router, types
 
-basic_router: Router = Router()
+default_router: Router = Router()
 
 
-@basic_router.message()
+@default_router.message()
 async def handle_all_other_messages(message: types.Message):
     """
     Handles all messages that do not match any specific command.
