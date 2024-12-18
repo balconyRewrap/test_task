@@ -5,6 +5,7 @@ from decouple import config
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.future import select
+from sqlalchemy.orm import joinedload
 
 from models import Base, Tag, Task, User
 
@@ -148,10 +149,28 @@ async def get_tasks_by_user_id(user_id: int) -> list[Task]:
     async with AsyncSessionLocal() as session:
 
         query_result = await session.execute(
-            select(Task).where(Task.user_id == user_id),
+            select(Task).options(joinedload(Task.tags)).where(Task.user_id == user_id),
         )
         
-        tasks = query_result.scalars().all()
+        tasks = query_result.unique().scalars().all()
+        return list(tasks)
+
+
+async def get_tasks_with_tags_by_user_id(user_id: int) -> list[Task]:
+    """
+    Asynchronously retrieves all tasks for a specific user from the database, including associated tags.
+
+    Args:
+        user_id (int): The ID of the user whose tasks are to be retrieved.
+
+    Returns:
+        list[Task]: A list of Task objects with associated tags, or an empty list if no tasks are found.
+    """
+    async with AsyncSessionLocal() as session:
+        tasks_query = select(Task).where(Task.user_id == user_id).options(joinedload(Task.tags))
+        query_result = await session.execute(tasks_query)
+
+        tasks = query_result.unique().scalars().all()
         return list(tasks)
 
 
@@ -165,3 +184,13 @@ async def init_db() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     await engine.dispose()
+
+async def main():
+    tasks: list[Task] = await get_tasks_with_tags_by_user_id(6415443720)
+    for task in tasks:
+        print(task.__str__())
+    
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
