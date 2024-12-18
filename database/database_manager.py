@@ -1,13 +1,30 @@
-# TODO: ADD DOCSTRING
+"""
+This module provides asynchronous database management functions for a task management system.
+
+It includes functions to add users, add tasks, retrieve tasks, mark tasks as completed, and search tasks.
+The module uses SQLAlchemy for ORM and async database operations.
+
+Functions:
+    is_env_valid() -> bool:
+    add_user(user_id: int, name: str, phone: str) -> str:
+    get_user_by_id(user_id: int) -> User | None:
+    add_task(user_id: int, name: str, tags: Optional[Tuple[str, ...]] = None) -> str:
+    get_tasks_by_user_id(user_id: int) -> list[Task]:
+    get_not_completed_tasks_by_user_id(user_id: int) -> list[Task]:
+    mark_task_completed(task_id: int) -> str:
+    search_tasks(user_id: int, query: Optional[list[str]] = None, tags: Optional[list[str]] = None) -> list[Task]:
+    init_db() -> None:
+"""
 from typing import Optional, Tuple
 
 from decouple import config
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
 
-from models import Base, Tag, Task, User
+from database.models import Base, Tag, Task, User
 
 
 def is_env_valid():
@@ -187,7 +204,7 @@ async def mark_task_completed(task_id: int) -> str:
     """
     async with AsyncSessionLocal() as session:
         task = await session.get(Task, task_id)
-        
+
         if not task:
             return f"Task with ID {task_id} does not exist."
 
@@ -202,6 +219,47 @@ async def mark_task_completed(task_id: int) -> str:
             return "Error: There was a problem marking the task as completed."
 
 
+async def search_tasks(
+    user_id: int,
+    query: Optional[list[str]] = None,
+    tags: Optional[list[str]] = None,
+) -> list[Task]:
+    """
+    Search for tasks based on user ID, query words, and tags.
+
+    Args:
+        user_id (int): The ID of the user whose tasks are being searched.
+        query (Optional[list[str]], optional): A list of query words to search for in task names. Defaults to None.
+        tags (Optional[list[str]], optional): A list of tags to filter tasks by. Defaults to None.
+    Returns:
+        list[Task]: A list of tasks that match the search criteria.
+    Raises:
+        ValueError: If neither 'query' nor 'tags' are provided.
+    """
+    if not query and not tags:
+        raise ValueError("At least one of 'query' or 'tags' must be provided.")
+    async with AsyncSessionLocal() as session:
+        base_query = select(Task).options(joinedload(Task.tags)).where(Task.user_id == user_id)  # noqa: WPS221
+
+        conditions = []
+        if query:
+            for query_word in query:
+                conditions.append(or_(Task.name.ilike(f"%{query_word}%")))
+
+        if tags:
+            tag_conditions = [
+                Task.tags.any(Tag.name == tag) for tag in tags
+            ]
+            conditions.append(or_(*tag_conditions))
+        if conditions:
+            base_query = base_query.where(or_(*conditions))
+
+        query_result = await session.execute(base_query)
+        tasks = query_result.unique().scalars().all()
+
+        return list(tasks)
+
+
 async def init_db() -> None:
     """
     Initialize the database by creating all tables defined in the metadata.
@@ -212,14 +270,3 @@ async def init_db() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     await engine.dispose()
-
-
-async def _main():
-    tasks: list[Task] = await get_not_completed_tasks_by_user_id(6415443720)
-    for task in tasks:
-        print(task.__str__())
-
-
-if __name__ == "__main__":
-    import asyncio
-    asyncio.run(_main())

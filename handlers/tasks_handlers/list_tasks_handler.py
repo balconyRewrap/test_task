@@ -1,18 +1,16 @@
 """
-This module provides handlers for listing and managing tasks using the aiogram library.
+This module provides handlers for listing and managing tasks using the aiogram framework.
 
 Handlers:
-- list_task_handler: Handles the listing of tasks for a user.
-- task_is_completed_handler: Handles the completion of a task when a callback query is received.
-- next_page_handler: Handles the callback query for navigating to the next page of tasks.
-- prev_page_handler: Handles the callback query for navigating to the previous page of tasks.
+    list_task_handler: Handles the listing of tasks for a user.
+    task_is_completed_handler: Handles the completion of a task when a callback query is received.
+    next_page_button_handler: Handles the callback query for navigating to the next page of tasks.
+    prev_page_button_handler: Handles the callback query for navigating to the previous page of tasks.
 
 Helper Functions:
-- _fetch_user_id: Fetches the user ID from the provided message or uses the given callback ID.
-- _get_total_pages_from_tasks_by_page_size: Calculates the total number of pages required to display all tasks.
-- _prepare_tasks_text: Asynchronously prepares a formatted text representation of a list of tasks.
-- _generate_keyboard: Generates an inline keyboard for task management.
-- _paginate_tasks: Paginates a list of tasks.
+    _fetch_user_id: Fetches the user ID from the provided message or uses the given callback ID.
+    _generate_keyboard: Generates an inline keyboard for task management.
+    _send_or_edit_message: Sends or edits a message based on the presence of a user callback ID.
 """
 from typing import Optional
 
@@ -20,28 +18,40 @@ from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
-from database_manager import get_not_completed_tasks_by_user_id, mark_task_completed
+from database.database_manager import get_not_completed_tasks_by_user_id, mark_task_completed
 from handlers.basic_handlers.basic_state import start_menu
-from models import Task
+from handlers.tasks_handlers.tasks_utils import (
+    get_total_pages_from_tasks_by_page_size,
+    paginate_tasks,
+    prepare_tasks_text,
+)
+from database.models import Task
 
 list_tasks_router: Router = Router()
 
 
 @list_tasks_router.message(start_menu, F.text.casefold() == "просмотр задач")
-async def list_task_handler(message: Message, state: FSMContext, user_callback_id: Optional[int] = None):
+async def list_task_handler(  # noqa: WPS217
+    message: Message,
+    state: FSMContext,
+    user_callback_id: Optional[int] = None,
+) -> None:
     """
     Handles the listing of tasks for a user.
 
     This asynchronous function fetches the user ID, retrieves the user's not completed tasks,
-    paginates them, and sends the tasks to the user in a message. If a user callback ID is provided,
-    the message is edited; otherwise, a new message is sent.
+    paginates them, and sends or edits a message with the tasks list and a keyboard for navigation.
 
     Args:
         message (Message): The message object from the user.
         state (FSMContext): The finite state machine context for the user.
-        user_callback_id (Optional[int], optional): The callback ID for the user. Defaults to None.
+        user_callback_id (Optional[int], optional): The callback ID of the user. Defaults to None.
+
+    Returns:
+        None
     """
     user_id = await _fetch_user_id(message, user_callback_id)
+
     if not user_id:
         return
 
@@ -51,36 +61,30 @@ async def list_task_handler(message: Message, state: FSMContext, user_callback_i
         return
 
     state_data = await state.get_data()
-    current_page = state_data.get("page", 0)
+
+    current_page = state_data.get("page_basic_list", 0)
     page_size = 5
-    total_pages = await _get_total_pages_from_tasks_by_page_size(tasks, page_size)
+    total_pages = await get_total_pages_from_tasks_by_page_size(tasks, page_size)
+    await state.update_data(last_page_basic_list=total_pages - 1)
 
-    if "last_page" not in state_data:
-        last_page = total_pages - 1
-        await state.update_data(last_page=last_page)
+    tasks_for_page = await paginate_tasks(tasks, current_page, page_size)
+    tasks_text = await prepare_tasks_text(tasks_for_page)
+    is_single_page = total_pages == 1
+    keyboard = await _generate_keyboard(tasks_for_page, current_page, total_pages, is_single_page)
 
-    tasks_for_page = await _paginate_tasks(tasks, current_page, page_size)
-
-    tasks_text = await _prepare_tasks_text(tasks_for_page)
-    keyboard = await _generate_keyboard(tasks_for_page, current_page, total_pages)
-
-    if user_callback_id:
-        await message.edit_text(
-            text=tasks_text,
-            parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
-        )
-    else:
-        await message.answer(
-            text=tasks_text,
-            parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
-        )
+    is_called_from_callback = bool(user_callback_id)
+    await _send_or_edit_message(
+        message,
+        tasks_text,
+        InlineKeyboardMarkup(inline_keyboard=keyboard),
+        is_called_from_callback,
+    )
 
     await state.update_data(page=current_page)
+    await state.set_state(start_menu)
 
 
-@list_tasks_router.callback_query(F.data.startswith("task_is_completed"))
+@list_tasks_router.callback_query(start_menu, F.data.startswith("task_is_completed"))
 async def task_is_completed_handler(callback_query: CallbackQuery, state: FSMContext):
     """
     Handles the completion of a task when a callback query is received.
@@ -111,7 +115,7 @@ async def task_is_completed_handler(callback_query: CallbackQuery, state: FSMCon
 
 
 @list_tasks_router.callback_query(F.data == "next_page")
-async def next_page_handler(callback_query: CallbackQuery, state: FSMContext):
+async def next_page_button_handler(callback_query: CallbackQuery, state: FSMContext):
     """
     Handles the callback query for navigating to the next page of tasks.
 
@@ -125,21 +129,19 @@ async def next_page_handler(callback_query: CallbackQuery, state: FSMContext):
         state (FSMContext): The finite state machine context for storing and retrieving state data.
     """
     user_id = callback_query.from_user.id
-
     state_data = await state.get_data()
-    current_page = state_data.get("page", 0)
-    last_page = state_data.get("last_page", 0)
-
+    current_page = state_data.get("page_basic_list", 0)
+    last_page = state_data.get("last_page_basic_list", 0)
     if current_page == last_page:
-        await state.update_data(page=0)
+        await state.update_data(page_basic_list=0)
     else:
-        await state.update_data(page=current_page + 1)
+        await state.update_data(page_basic_list=current_page + 1)
 
     await list_task_handler(callback_query.message, state, user_id)
 
 
 @list_tasks_router.callback_query(F.data == "prev_page")
-async def prev_page_handler(callback_query: CallbackQuery, state: FSMContext):
+async def prev_page_button_handler(callback_query: CallbackQuery, state: FSMContext):
     """
     Handles the callback query for navigating to the previous page of tasks.
 
@@ -155,14 +157,13 @@ async def prev_page_handler(callback_query: CallbackQuery, state: FSMContext):
     """
     user_id = callback_query.from_user.id
     state_data = await state.get_data()
-    current_page = state_data.get("page", 0)
-
-    last_page = state_data.get("last_page", 0)
+    current_page = state_data.get("page_basic_list", 0)
+    last_page = state_data.get("last_page_basic_list", 0)
 
     if current_page == 0:
-        await state.update_data(page=last_page)
+        await state.update_data(page_basic_list=last_page)
     else:
-        await state.update_data(page=current_page - 1)
+        await state.update_data(page_basic_list=current_page - 1)
 
     await list_task_handler(callback_query.message, state, user_id)
 
@@ -186,43 +187,11 @@ async def _fetch_user_id(message: Message, user_callback_id: Optional[int]) -> O
     return None
 
 
-async def _get_total_pages_from_tasks_by_page_size(tasks: list[Task], page_size: int) -> int:
-    """
-    Calculates the total number of pages required to display all tasks.
-
-    Args:
-        tasks (list[Task]): A list of Task objects to be paginated.
-        page_size (int): The number of tasks per page.
-
-    Returns:
-        int: The total number of pages required to display all tasks.
-    """
-    return (len(tasks) + page_size - 1) // page_size
-
-
-async def _prepare_tasks_text(tasks: list[Task]) -> str:
-    """
-    Asynchronously prepares a formatted text representation of a list of tasks.
-
-    Args:
-        tasks (list[Task]): A list of Task objects to be formatted.
-
-    Returns:
-        str: A formatted string representing the list of tasks, including their names and tags.
-    """
-    tasks_text = "<b>Ваши задачи:</b>\n"
-    for task in tasks:
-        tasks_text += f"• <b>{task.name}</b>\n"  # noqa: WPS336
-        if task.tags:
-            tasks_text += "<i>Теги:</i>\n    ◦ "  # noqa: WPS336
-            tasks_text += f"{'\n    ◦ '.join([f'<code>{tag}</code>' for tag in task.tags])}\n"  # noqa: WPS221, WPS336, E501
-    return tasks_text
-
-
 async def _generate_keyboard(
     tasks: list[Task],
     current_page: int,
     total_pages: int,
+    is_single_page: bool,
 ) -> list[list[InlineKeyboardButton]]:
     """
     Generates an inline keyboard for task management.
@@ -236,38 +205,54 @@ async def _generate_keyboard(
         list[list[InlineKeyboardButton]]: A 2D list representing the inline keyboard.
     """
     keyboard = []
-
     for task_item in tasks:
         task_buttons = [
             InlineKeyboardButton(text=f"{task_item.name}", callback_data="noop"),
             InlineKeyboardButton(text="Выполнена", callback_data=f"task_is_completed:{task_item.id}"),
         ]
         keyboard.append(task_buttons)
+    if not is_single_page:
+        navigator_button = [InlineKeyboardButton(text="Навигация по страницам", callback_data="noop")]
+        keyboard.append(navigator_button)
 
-    navigator_button = [InlineKeyboardButton(text="Навигация по страницам", callback_data="noop")]
-    keyboard.append(navigator_button)
-
-    nav_buttons = [
-        InlineKeyboardButton(text="←", callback_data="prev_page"),
-        InlineKeyboardButton(text=f"{current_page + 1}/{total_pages}", callback_data="current_page"),
-        InlineKeyboardButton(text="→", callback_data="next_page"),
-    ]
-    keyboard.append(nav_buttons)
+        nav_buttons = [
+            InlineKeyboardButton(text="←", callback_data="prev_page"),
+            InlineKeyboardButton(text=f"{current_page + 1}/{total_pages}", callback_data="current_page"),
+            InlineKeyboardButton(text="→", callback_data="next_page"),
+        ]
+        keyboard.append(nav_buttons)
 
     return keyboard
 
 
-async def _paginate_tasks(tasks: list[Task], current_page: int, page_size: int) -> list[Task]:
+async def _send_or_edit_message(
+    message: Message,
+    tasks_text: str,
+    keyboard: InlineKeyboardMarkup,
+    is_called_from_callback: bool,
+):
     """
-    Paginate a list of tasks.
+    Send or edit a message based on the presence of a user callback ID.
 
     Args:
-        tasks (list[Task]): The list of tasks to paginate.
-        current_page (int): The current page number (0-indexed).
-        page_size (int): The number of tasks per page.
+        message (Message): The message object to be sent or edited.
+        tasks_text (str): The text content of the message.
+        keyboard (InlineKeyboardMarkup): The inline keyboard markup to be attached to the message.
+        is_called_from_callback (Optional[int]):
+        if called from callback - edit, else - send message
+
     Returns:
-        list[Task]: A sublist of tasks for the specified page.
+        None
     """
-    start = current_page * page_size
-    end = start + page_size
-    return tasks[start:end]
+    if is_called_from_callback:
+        await message.edit_text(
+            text=tasks_text,
+            parse_mode="HTML",
+            reply_markup=keyboard,
+        )
+    else:
+        await message.answer(
+            text=tasks_text,
+            parse_mode="HTML",
+            reply_markup=keyboard,
+        )

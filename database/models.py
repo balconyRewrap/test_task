@@ -31,6 +31,9 @@ class Task(Base):
     user = relationship('User', back_populates='tasks')
     tags = relationship('Tag', secondary='task_tags', back_populates='tasks')
 
+    def __str__(self)-> str:
+        return str(self.name)
+
 
 
 

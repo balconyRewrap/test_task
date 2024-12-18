@@ -8,12 +8,13 @@ Functions:
     handle_all_other_messages(message: types.Message):
 """
 from aiogram import Router, types
+from aiogram.fsm.context import FSMContext
 
 default_router: Router = Router()
 
 
 @default_router.message()
-async def handle_all_other_messages(message: types.Message):
+async def handle_all_other_messages(message: types.Message, state: FSMContext):
     """
     Handles all messages that do not match any specific command.
 
@@ -22,4 +23,5 @@ async def handle_all_other_messages(message: types.Message):
     Returns:
         None: This function sends a response message to the user indicating that the command is not recognized.
     """
-    await message.answer("This command is not recognized. Please use /start to begin.")
+    await state.clear()
+    await message.answer("Команда не распознана.\nПожалуйста, используйте /start или кнопки ниже.")

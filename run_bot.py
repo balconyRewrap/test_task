@@ -36,12 +36,13 @@ from aiogram.fsm.storage.redis import RedisStorage
 from decouple import config
 from redis.asyncio.client import Redis
 
-from database_manager import init_db
+from database.database_manager import init_db
 from handlers.basic_handlers.default_handler import default_router
 from handlers.basic_handlers.start_handler import start_router
-from handlers.registration_handlers import registration_router
+from handlers.registration_handler.registration_handlers import registration_router
 from handlers.tasks_handlers.add_task_handler import add_task_router
 from handlers.tasks_handlers.list_tasks_handler import list_tasks_router
+from handlers.tasks_handlers.search_task_handler import search_tasks_router
 
 logging.basicConfig(level=logging.INFO)
 
@@ -64,6 +65,7 @@ dp.include_router(router=start_router)
 dp.include_router(router=registration_router)
 dp.include_router(router=add_task_router)
 dp.include_router(router=list_tasks_router)
+dp.include_router(router=search_tasks_router)
 dp.include_router(router=default_router)
 
 
