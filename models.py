@@ -20,6 +20,7 @@ class User(Base):
         return f"User(id={self.id}, name={self.name}, phone={self.phone})"
 
 
+
 class Task(Base):
     __tablename__ = 'tasks'
 
@@ -30,8 +31,6 @@ class Task(Base):
     user = relationship('User', back_populates='tasks')
     tags = relationship('Tag', secondary='task_tags', back_populates='tasks')
 
-    def __repr__(self):
-        return f"Task(id={self.id}, name={self.name}, is_completed={self.is_completed})"
 
 
 
@@ -39,7 +38,7 @@ class Tag(Base):
     __tablename__ = 'tags'
 
     id = Column(Integer, primary_key=True)
-    name = Column(String(255), unique=True, nullable=False)
+    name = Column(String(255), nullable=False)
     tasks = relationship('Task', secondary='task_tags', back_populates='tags')
 
     def __repr__(self):

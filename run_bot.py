@@ -41,6 +41,7 @@ from handlers.basic_handlers.default_handler import default_router
 from handlers.basic_handlers.start_handler import start_router
 from handlers.registration_handlers import registration_router
 from handlers.tasks_handlers.add_task_handler import add_task_router
+from handlers.tasks_handlers.list_tasks_handler import list_tasks_router
 
 logging.basicConfig(level=logging.INFO)
 
@@ -62,6 +63,7 @@ dp = Dispatcher(bot=bot, storage=storage)
 dp.include_router(router=start_router)
 dp.include_router(router=registration_router)
 dp.include_router(router=add_task_router)
+dp.include_router(router=list_tasks_router)
 dp.include_router(router=default_router)
 
 
