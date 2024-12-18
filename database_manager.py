@@ -151,27 +151,55 @@ async def get_tasks_by_user_id(user_id: int) -> list[Task]:
         query_result = await session.execute(
             select(Task).options(joinedload(Task.tags)).where(Task.user_id == user_id),
         )
-        
         tasks = query_result.unique().scalars().all()
         return list(tasks)
 
 
-async def get_tasks_with_tags_by_user_id(user_id: int) -> list[Task]:
+async def get_not_completed_tasks_by_user_id(user_id: int) -> list[Task]:
     """
-    Asynchronously retrieves all tasks for a specific user from the database, including associated tags.
+    Asynchronously retrieves all not completed tasks for a specific user from the database.
 
     Args:
         user_id (int): The ID of the user whose tasks are to be retrieved.
 
     Returns:
-        list[Task]: A list of Task objects with associated tags, or an empty list if no tasks are found.
+        list[Task]: A list of Task objects associated with the given user, or an empty list if no tasks are found.
     """
     async with AsyncSessionLocal() as session:
-        tasks_query = select(Task).where(Task.user_id == user_id).options(joinedload(Task.tags))
-        query_result = await session.execute(tasks_query)
 
+        # Pylance complains about using "== Bool", not "is Bool", but here this is correct.
+        query_result = await session.execute(
+            select(Task).options(joinedload(Task.tags)).where(Task.user_id == user_id, Task.is_completed == False),  # noqa: E712, E501
+        )
         tasks = query_result.unique().scalars().all()
         return list(tasks)
+
+
+async def mark_task_completed(task_id: int) -> str:
+    """
+    Asynchronously marks a task as completed by updating the `is_completed` field.
+
+    Args:
+        task_id (int): The ID of the task to mark as completed.
+
+    Returns:
+        str: A message indicating the result of the operation.
+    """
+    async with AsyncSessionLocal() as session:
+        task = await session.get(Task, task_id)
+        
+        if not task:
+            return f"Task with ID {task_id} does not exist."
+
+        # Pylance complains about converting Literal[True] to Column[Bool], but this is correct.
+        task.is_completed = True  # type: ignore
+
+        try:
+            await session.commit()  # Применяем изменения
+            return f"Task with ID {task_id} has been marked as completed."
+        except IntegrityError:
+            await session.rollback()
+            return "Error: There was a problem marking the task as completed."
 
 
 async def init_db() -> None:
@@ -185,12 +213,13 @@ async def init_db() -> None:
         await conn.run_sync(Base.metadata.create_all)
     await engine.dispose()
 
-async def main():
-    tasks: list[Task] = await get_tasks_with_tags_by_user_id(6415443720)
+
+async def _main():
+    tasks: list[Task] = await get_not_completed_tasks_by_user_id(6415443720)
     for task in tasks:
         print(task.__str__())
-    
+
 
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(main())
+    asyncio.run(_main())

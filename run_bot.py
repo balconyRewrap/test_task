@@ -67,9 +67,17 @@ dp.include_router(router=list_tasks_router)
 dp.include_router(router=default_router)
 
 
+async def _reset_all_states():
+    keys = await redis_client.keys("fsm:*")
+    if keys:
+        await redis_client.delete(*keys)
+
+
 async def _main():
+    await _reset_all_states()
     await init_db()
     await dp.start_polling(bot)
+
 
 if __name__ == '__main__':
     asyncio.run(_main())

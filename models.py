@@ -41,6 +41,9 @@ class Tag(Base):
     name = Column(String(255), nullable=False)
     tasks = relationship('Task', secondary='task_tags', back_populates='tags')
 
+    def __str__(self) -> str:
+        return str(self.name)
+
     def __repr__(self):
         return f"Tag(id={self.id}, name={self.name})"
 
