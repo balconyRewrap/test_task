@@ -10,11 +10,10 @@ import re
 from aiogram import Router, types
 from aiogram.fsm.context import FSMContext
 
-from database_manager import add_user, get_user_by_id
+from database.database_manager import add_user, get_user_by_id
 from handlers.basic_handlers.basic_state import start_menu
-from handlers.states_groups import RegistrationStates
-from models import User
-from temp_database_manager import TempDatabaseManager
+from handlers.registration_handler.registration_states_group import RegistrationStates
+from database.models import User
 
 registration_router: Router = Router()
 
@@ -35,14 +34,13 @@ async def handle_name(message: types.Message, state: FSMContext):
         await message.answer("Ошибка: не удалось получить информацию о пользователе.")
         return
 
-    user_id = message.from_user.id
     name = message.text
 
     if not name:
         await message.answer("Имя не может быть пустым. Пожалуйста, введите ваше имя.")
         return
 
-    await _store_temp_user_data(user_id, "name", name)
+    await state.update_data(name=name)
     await message.answer(f"Прекрасно, {name}! Теперь введите свой номер телефона.")
     await state.set_state(RegistrationStates.awaiting_phone)
 
@@ -73,8 +71,10 @@ async def handle_phone(message: types.Message, state: FSMContext):
         )
         return
 
-    await _store_temp_user_data(user_id, "phone", phone)
-    user_name = await _get_user_name(user_id)
+    await state.update_data(phone=phone)
+    state_data = await state.get_data()
+    user_name = state_data.get("username", "")
+
     await _complete_registration(user_id, user_name, phone, message, state)
 
 
@@ -84,24 +84,11 @@ async def _is_valid_phone(phone: str) -> bool:
     return bool(re.match(number_regex, phone))
 
 
-async def _store_temp_user_data(user_id: int, field: str, temp_value: str):
-    """Stores temporary user data."""
-    temp_db = TempDatabaseManager()
-    await temp_db.set_user_temp_value_by_name(user_id, field, temp_value)
-
-
-async def _get_user_name(user_id: int) -> str:
-    """Retrieves the user's name from temporary storage."""
-    temp_db = TempDatabaseManager()
-    return await temp_db.get_user_temp_value_by_name(user_id, "name")
-
-
 async def _complete_registration(user_id: int, user_name: str, phone: str, message: types.Message, state: FSMContext):
     """Completes the registration by storing user data and sending confirmation."""
     await add_user(user_id, user_name, phone)
     user_data = await get_user_by_id(user_id)
-    temp_db = TempDatabaseManager()
-    await temp_db.clear_user_data_from_redis(user_id)
+    await _clean_state(state)
 
     if user_data is None:
         await message.answer("Error: Failed to register user.")
@@ -112,3 +99,20 @@ async def _complete_registration(user_id: int, user_name: str, phone: str, messa
         f"Registration Successful! Your entered details:\nName: {user.name}\nPhone: {user.phone}",
     )
     await state.set_state(start_menu)
+
+
+async def _clean_state(state: FSMContext) -> None:
+    """
+    Clean the state by resetting specific data fields and setting a new state.
+
+    This function updates the FSMContext state by clearing the 'name' and 'phone' fields
+    and then sets the state to 'awaiting_name'.
+
+    Args:
+        state (FSMContext): The finite state machine context to be updated.
+
+    Returns:
+        None
+    """
+    await state.update_data(name="", phone="")
+    await state.set_state(RegistrationStates.awaiting_name)

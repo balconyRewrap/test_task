@@ -35,7 +35,9 @@ async def _give_basic_buttons() -> list[list[types.KeyboardButton]]:
     add_task_button = types.KeyboardButton(text="Добавить задачу")
     view_tasks_button = types.KeyboardButton(text="Просмотр задач")
     search_tasks_button = types.KeyboardButton(text="Поиск задач")
+    main_menu_button = types.KeyboardButton(text="Главное меню")
     basic_buttons.append([add_task_button])
     basic_buttons.append([view_tasks_button])
     basic_buttons.append([search_tasks_button])
+    basic_buttons.append([main_menu_button])
     return basic_buttons
