@@ -24,7 +24,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from database.database_manager import add_task
-from handlers.basic_handlers.basic_keyboard import give_basic_keyboard
+from handlers.basic_handlers.basic_keyboard import give_menu_keyboard, give_post_menu_keyboard
 from handlers.basic_handlers.basic_state import start_menu
 from handlers.tasks_handlers.tasks_states_groups import AddTaskStates
 
@@ -43,7 +43,7 @@ async def add_task_handler(message: Message, state: FSMContext) -> None:
         state (FSMContext): The finite state machine context for managing user states.
     """
     await state.set_state(AddTaskStates.waiting_name)
-    await message.answer("Введите название задачи:")
+    await message.answer("Введите название <b>задачи</b>:", reply_markup=await give_post_menu_keyboard())
 
 
 @add_task_router.message(AddTaskStates.waiting_name)
@@ -70,7 +70,7 @@ async def handle_name(message: Message, state: FSMContext) -> None:
     await state.update_data(task_name=task_name)
     await state.set_state(AddTaskStates.waiting_tags)
     await message.answer(
-        "Введите теги для задачи через запятую или нажмите кнопку чтобы оставить теги пустыми:",
+        "Введите <b>теги</b> для задачи через запятую, через <b>enter</b> или нажмите кнопку <b>'Закончить заполнение тегов'</b> чтобы оставить теги пустыми:",  # noqa: E501
         reply_markup=await _create_end_tags_keyboard(),
     )
 
@@ -100,9 +100,12 @@ async def handle_tags(message: Message, state: FSMContext) -> None:
     existed_tags = state_data.get("tags", [])
     existed_tags.append(tag)
     await state.update_data(tags=existed_tags)
-
+    answer_text = (
+        "Тег успешно добавлен. Пожалуйста, введите "
+        "следующий тег или нажмите кнопку <b>'Закончить заполнение тегов'</b> для окончания."
+    )
     await message.answer(
-        "Тег задачи успешно добавлен. Пожалуйста, введите следующий тег или нажмите кнопку для окончания.",
+        answer_text,
         reply_markup=await _create_end_tags_keyboard(),
     )
 
@@ -130,7 +133,7 @@ async def end_tags_callback(query: CallbackQuery, state: FSMContext) -> None:
     await add_task(user_id=user_id, name=task_name, tags=tuple(tags))
     await _clean_state(state)
     if query.message:
-        await query.message.answer("Задача успешно добавлена!", reply_markup=await give_basic_keyboard())
+        await query.message.answer("Задача успешно добавлена!", reply_markup=await give_menu_keyboard(user_id))
     await state.clear()
     await state.set_state(start_menu)
 

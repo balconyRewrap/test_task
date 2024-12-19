@@ -12,7 +12,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 
 from database.database_manager import get_user_by_id
-from handlers.basic_handlers.basic_keyboard import give_basic_keyboard
+from handlers.basic_handlers.basic_keyboard import give_menu_keyboard
 from handlers.basic_handlers.basic_state import start_menu
 from handlers.registration_handler.registration_states_group import RegistrationStates
 
@@ -41,7 +41,7 @@ async def cmd_start(message: types.Message, state: FSMContext) -> None:
         return
     
     already_registered_text = (
-        "Добро пожаловать!"
+        "Добро пожаловать!\n"
         "Используйте кнопки ниже для управления задачами."
     )
     user_id = message.from_user.id
@@ -49,12 +49,12 @@ async def cmd_start(message: types.Message, state: FSMContext) -> None:
     if await get_user_by_id(user_id) is not None:
         await message.answer(
             already_registered_text,
-            reply_markup=await give_basic_keyboard(),
+            reply_markup=await give_menu_keyboard(user_id),
         )
         await state.set_state(start_menu)
         return
     await state.set_state(RegistrationStates.awaiting_name)
     await message.answer(
         "Привет! Давайте начнем регистрацию. Пожалуйста, укажите ваше имя.",
-        reply_markup=await give_basic_keyboard(),
+        reply_markup=types.ReplyKeyboardRemove(),
     )

@@ -19,13 +19,14 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from database.database_manager import get_not_completed_tasks_by_user_id, mark_task_completed
+from database.models import Task
+from handlers.basic_handlers.basic_keyboard import give_menu_keyboard
 from handlers.basic_handlers.basic_state import start_menu
 from handlers.tasks_handlers.tasks_utils import (
     get_total_pages_from_tasks_by_page_size,
     paginate_tasks,
     prepare_tasks_text,
 )
-from database.models import Task
 
 list_tasks_router: Router = Router()
 
@@ -54,10 +55,14 @@ async def list_task_handler(  # noqa: WPS217
 
     if not user_id:
         return
-
+    message.answer(
+        "Поиск задач производиться. Пожалуйста, подождите",
+        reply_markup=await give_menu_keyboard(user_id),
+        parse_mode="HTML",
+    )
     tasks = await get_not_completed_tasks_by_user_id(user_id)
     if not tasks:
-        await message.answer("У вас нет задач.")
+        await message.answer("У вас нет задач.", reply_markup=await give_menu_keyboard(user_id))
         return
 
     state_data = await state.get_data()
@@ -205,14 +210,16 @@ async def _generate_keyboard(
         list[list[InlineKeyboardButton]]: A 2D list representing the inline keyboard.
     """
     keyboard = []
+    task_number_on_page = 1
     for task_item in tasks:
+        task_text = f"Задача №{task_number_on_page} выполнена"
         task_buttons = [
-            InlineKeyboardButton(text=f"{task_item.name}", callback_data="noop"),
-            InlineKeyboardButton(text="Выполнена", callback_data=f"task_is_completed:{task_item.id}"),
+            InlineKeyboardButton(text=task_text, callback_data=f"task_is_completed:{task_item.id}"),
         ]
+        task_number_on_page += 1
         keyboard.append(task_buttons)
     if not is_single_page:
-        navigator_button = [InlineKeyboardButton(text="Навигация по страницам", callback_data="noop")]
+        navigator_button = [InlineKeyboardButton(text="Просмотр страниц", callback_data="noop")]
         keyboard.append(navigator_button)
 
         nav_buttons = [

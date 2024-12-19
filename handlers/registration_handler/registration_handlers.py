@@ -11,9 +11,10 @@ from aiogram import Router, types
 from aiogram.fsm.context import FSMContext
 
 from database.database_manager import add_user, get_user_by_id
+from database.models import User
+from handlers.basic_handlers.basic_keyboard import give_menu_keyboard
 from handlers.basic_handlers.basic_state import start_menu
 from handlers.registration_handler.registration_states_group import RegistrationStates
-from database.models import User
 
 registration_router: Router = Router()
 
@@ -73,14 +74,15 @@ async def handle_phone(message: types.Message, state: FSMContext) -> None:
 
     await state.update_data(phone=phone)
     state_data = await state.get_data()
-    user_name = state_data.get("username", "")
+    user_name = state_data.get("name", "")
 
     await _complete_registration(user_id, user_name, phone, message, state)
 
 
 async def _is_valid_phone(phone: str) -> bool:
-    """Validates the phone number."""
-    number_regex = r'^(\+7|7|8)?[\s\-]?\(?[489][0-9]{2}\)?[\s\-]?[0-9]{3}[\s\-]?[0-9]{2}[\s\-]?[0-9]{2}$'
+    """Validates the russian phone number."""
+    number_regex = r'(^8|7|\+7)((\d{10})|(\s\(\d{3}\)\s\d{3}\s\d{2}\s\d{2}))$'
+    
     return bool(re.match(number_regex, phone))
 
 
@@ -102,7 +104,8 @@ async def _complete_registration(
 
     user: User = user_data
     await message.answer(
-        f"Registration Successful! Your entered details:\nName: {user.name}\nPhone: {user.phone}",
+        f"<b>Регистрация</b> успешно завершена.\n\nИмя: {user.name}\nНомер телефона: {user.phone}",
+        reply_markup=await give_menu_keyboard(user_id),
     )
     await state.set_state(start_menu)
 

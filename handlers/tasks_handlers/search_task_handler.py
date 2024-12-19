@@ -27,7 +27,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from database.database_manager import search_tasks
-from handlers.basic_handlers.basic_keyboard import give_basic_keyboard
+from database.models import Task
+from handlers.basic_handlers.basic_keyboard import give_menu_keyboard, give_post_menu_keyboard
 from handlers.basic_handlers.basic_state import start_menu
 from handlers.tasks_handlers.tasks_states_groups import SearchStates
 from handlers.tasks_handlers.tasks_utils import (
@@ -35,7 +36,6 @@ from handlers.tasks_handlers.tasks_utils import (
     paginate_tasks,
     prepare_tasks_text,
 )
-from database.models import Task
 
 search_tasks_router: Router = Router()
 
@@ -50,21 +50,27 @@ async def search_task_handler(message: Message, state: FSMContext) -> None:
         state (FSMContext): The state object for tracking user sessions.
     """
     if message.from_user is None:
-        await message.answer("Ошибка: не удалось получить информацию о пользователе.")
+        await message.answer(
+            "Ошибка: не удалось получить информацию о пользователе.",
+        )
         return
-
+    user_id = message.from_user.id
+    await message.answer("<b>Поиск задач</b>", reply_markup=await give_post_menu_keyboard())
     answer_text = (
-        "<b>Поиск задач</b>\n\n"
-        "Для поиска по ключевым словам введите их через запятую или нажмите Enter для каждого нового слова."
-        "Если вы хотите искать задачи по одному слову, просто введите его."
-        "Для поиска по тегам, нажмите на кнопку ниже, и вы сможете ввести теги для поиска задач."
-        "Для окончания поиска нажмите кнопку 'Закончить поиск'."
+        "Для поиска по ключевым словам введите их через запятую или нажмите <b>Enter</b> для каждого нового слова.\n"
+        "Если вы хотите искать задачи по одному слову, просто введите его.\n"
+        "Для поиска по тегам, нажмите на кнопку ниже, и вы сможете ввести теги для поиска задач.\n"
+        "Для окончания поиска нажмите кнопку <b>'Закончить поиск'</b>.\n"
     )
 
     await state.set_state(SearchStates.waiting_for_query)
     reply_markup = await _create_search_tasks_keyboard(state)
     if not reply_markup:
-        await message.answer("К сожалению, произошла ошибка. Попробуйте еще раз.")
+        await state.set_state(start_menu)
+        await message.answer(
+            "К сожалению, произошла ошибка. Попробуйте еще раз.",
+            reply_markup=await give_menu_keyboard(user_id),
+        )
 
     await message.answer(answer_text, reply_markup=reply_markup)
 
@@ -85,8 +91,8 @@ async def handle_query(message: Message, state: FSMContext) -> None:
     query = message.text
     if not query:
         await message.answer(
-            "Ключевые слова не могут быть пустыми. Пожалуйста, введите ключевые слова для поиска "
-            "или используйте кнопку тегов.",
+            "<b>Ключевые слова</b> не могут быть пустыми.\nПожалуйста, введите <b>ключевые слова</b> для поиска "
+            "или используйте кнопку <b>тегов</b>.",
         )
         return
 
@@ -101,9 +107,9 @@ async def handle_query(message: Message, state: FSMContext) -> None:
 
     await state.update_data(keywords=keywords)
     answer_text = (
-        f"Ключевые слова для поиска: {', '.join(keywords)}\n"
-        "Продолжайте вводить ключевые слова или нажмите кнопку для поиска по тегам.\n"
-        "Для окончания поиска нажмите кнопку 'Закончить поиск'.\n"
+        f"<b>Ключевые слова</b> для поиска: {', '.join(keywords)}\n\n"
+        "Продолжайте вводить ключевые слова или нажмите кнопку для поиска по <b>тегам</b>.\n"
+        "Для окончания поиска нажмите кнопку <b>'Закончить поиск'</b>.\n"
     )
 
     await message.answer(answer_text)
@@ -125,7 +131,7 @@ async def handle_tags(message: Message, state: FSMContext) -> None:
     tags = message.text
     if not tags:
         await message.answer(
-            "Теги не могут быть пустыми. Пожалуйста, "
+            "<b>Теги</b> не могут быть пустыми.\nПожалуйста, "
             "введите ключевые теги для поиска или используйте кнопку ключевых слов.",
         )
         return
@@ -143,9 +149,9 @@ async def handle_tags(message: Message, state: FSMContext) -> None:
 
     await state.update_data(tags=tags)
     answer_text = (
-        f"Теги для поиска: {', '.join(tags)}\n"
-        "Продолжайте вводить ключевые слова или нажмите кнопку для поиска по тегам.\n"
-        "Для окончания поиска нажмите кнопку 'Закончить поиск'.\n"
+        f"<b>Теги</b> для поиска: {', '.join(tags)}\n\n"
+        "Продолжайте вводить ключевые слова или нажмите <b>'Поиск по тегам'</b> для поиска по <b>тегам</b>.\n"
+        "Для окончания поиска нажмите кнопку <b>'Закончить поиск'</b>.\n"
     )
 
     await message.answer(answer_text)
@@ -169,9 +175,9 @@ async def search_tags_button_handler(callback_query: CallbackQuery, state: FSMCo
     """
     answer_text = (
         "<b>Поиск задач по тегам</b>\n\n"
-        "Введите теги для поиска задач через запятую или нажмите Enter для каждого нового тега."
-        "Для перехода в поиск по ключевым словам нажмите кнопку 'Поиск по ключевым словам'."
-        "Для окончания поиска нажмите кнопку 'Закончить поиск'."
+        "Введите <b>теги</b> для поиска задач через запятую или нажмите <b>Enter<b> для каждого нового тега.\n"
+        "Для перехода в поиск по ключевым словам нажмите кнопку <b>'Поиск по ключевым словам'<b>.\n"
+        "Для окончания поиска нажмите кнопку <b>'Закончить поиск'</b>.\n"
     )
     await state.set_state(SearchStates.waiting_for_tags)
     if callback_query.message:
@@ -194,9 +200,9 @@ async def search_query_button_handler(callback_query: CallbackQuery, state: FSMC
     """
     answer_text = (
         "<b>Поиск задач по тегам</b>\n\n"
-        "Введите теги для поиска задач через запятую или нажмите Enter для каждого нового тега."
-        "Для перехода в поиск по ключевым словам нажмите кнопку 'Поиск по ключевым словам'."
-        "Для окончания поиска нажмите кнопку 'Закончить поиск'."
+        "Введите теги для поиска задач через запятую или нажмите Enter для каждого нового тега.\n"
+        "Для перехода в поиск по ключевым словам нажмите кнопку 'Поиск по ключевым словам'.\n"
+        "Для окончания поиска нажмите кнопку 'Закончить поиск'.\n"
     )
     await state.set_state(SearchStates.waiting_for_query)
     if callback_query.message:
@@ -230,9 +236,10 @@ async def end_task_list_button_handler(callback_query: CallbackQuery, state: FSM
         callback_query (CallbackQuery): The callback query object containing the user's input.
         state (FSMContext): The finite state machine context for managing user states.
     """
+    user_id = callback_query.from_user.id
     await state.clear()
     await state.set_state(start_menu)
-    await callback_query.answer("Показ задач завершен.", reply_markup=await give_basic_keyboard())
+    await callback_query.answer("Показ задач завершен.", reply_markup=await give_menu_keyboard(user_id))
 
 
 @search_tasks_router.callback_query(F.data == "next_page_search")
@@ -384,7 +391,7 @@ async def _search_tasks_or_handle_error(
     try:
         tasks = await search_tasks(user_callback_id, keywords, tags)
     except ValueError:
-        await message.answer("И теги, и ключевые слова не могут быть пустыми.")
+        await message.answer("И <b>теги</b>, и <b>ключевые слова</b> не могут быть пустыми.")
         await state.clear()
         await state.set_state(start_menu)
         raise
@@ -529,7 +536,7 @@ async def _generate_keyboard(
     keyboard = []
 
     if not is_single_page:
-        navigator_button = [InlineKeyboardButton(text="Навигация по страницам", callback_data="noop")]
+        navigator_button = [InlineKeyboardButton(text="Навигация ←→", callback_data="noop")]
         keyboard.append(navigator_button)
         nav_buttons = [
             InlineKeyboardButton(text="←", callback_data="next_page_search"),

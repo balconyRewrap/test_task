@@ -52,7 +52,7 @@ A Telegram bot for managing task lists, allowing users to register, add tasks, v
 
 1. Start the bot by running the following command:
    ```bash
-   python bot.py
+   python run_bot.py
    ```
 
 2. Interact with the bot:

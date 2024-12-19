@@ -1,19 +1,30 @@
 """
-This module provides asynchronous database management functions for a task management system.
+This module provides asynchronous database management functionalities for a task management system.
 
-It includes functions to add users, add tasks, retrieve tasks, mark tasks as completed, and search tasks.
-The module uses SQLAlchemy for ORM and async database operations.
+It includes functions to validate environment variables, initialize the database, and perform CRUD operations
+on users and tasks.
 
 Functions:
-    is_env_valid() -> bool:
-    add_user(user_id: int, name: str, phone: str) -> str:
-    get_user_by_id(user_id: int) -> User | None:
-    add_task(user_id: int, name: str, tags: Optional[Tuple[str, ...]] = None) -> str:
-    get_tasks_by_user_id(user_id: int) -> list[Task]:
-    get_not_completed_tasks_by_user_id(user_id: int) -> list[Task]:
-    mark_task_completed(task_id: int) -> str:
-    search_tasks(user_id: int, query: Optional[list[str]] = None, tags: Optional[list[str]] = None) -> list[Task]:
-    init_db() -> None:
+    - is_env_valid() -> bool:
+
+    - add_user(user_id: int, name: str, phone: str) -> str:
+
+    - get_user_by_id(user_id: int) -> User | None:
+
+    - add_task(user_id: int, name: str, tags: Optional[Tuple[str, ...]] = None) -> str:
+
+    - has_any_task_by_user_id(user_id: int) -> bool:
+        Asynchronously checks if any incomplete task (is_completed=False) exists for a user by their ID.
+
+    - get_tasks_by_user_id(user_id: int) -> list[Task]:
+
+    - get_not_completed_tasks_by_user_id(user_id: int) -> list[Task]:
+
+    - mark_task_completed(task_id: int) -> str:
+
+    - search_tasks(user_id: int, query: Optional[list[str]] = None, tags: Optional[list[str]] = None) -> list[Task]:
+
+    - init_db() -> None:
 """
 from typing import Optional, Tuple
 
@@ -151,6 +162,25 @@ async def add_task(user_id: int, name: str, tags: Optional[Tuple[str, ...]] = No
         except IntegrityError:
             await session.rollback()
             return "Error: There was a problem adding the task."
+
+
+async def has_any_task_by_user_id(user_id: int) -> bool:
+    """
+    Asynchronously checks if by id any incomplete task (is_completed=False) exist.
+
+    Args:
+        user_id (int): The ID of the user to check for incomplete tasks.
+
+    Returns:
+        bool: True if at least one incomplete task exists for the user, False otherwise.
+    """
+    async with AsyncSessionLocal() as session:
+        query_result = await session.execute(
+            select(Task.id)
+            .where(Task.user_id == user_id, Task.is_completed == False)  # noqa: E712
+            .limit(1),
+        )
+        return query_result.scalar() is not None
 
 
 async def get_tasks_by_user_id(user_id: int) -> list[Task]:

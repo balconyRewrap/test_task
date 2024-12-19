@@ -52,10 +52,12 @@ async def prepare_tasks_text(tasks: list[Task]) -> str:
     Returns:
         str: A formatted string representing the list of tasks, including their names and tags.
     """
-    tasks_text = "<b>Ваши задачи:</b>\n"
+    tasks_text = "<b>Ваши задачи:</b>"
+    task_number_on_page = 1
     for task in tasks:
-        tasks_text += f"• <b>{task.name}</b>\n"  # noqa: WPS336
+        tasks_text += f"\n{task_number_on_page}. <b>{task.name}</b>\n"
+        task_number_on_page += 1
         if task.tags:
-            tasks_text += "<i>Теги:</i>\n    ◦ "  # noqa: WPS336
-            tasks_text += f"{'\n    ◦ '.join([f'<code>{tag}</code>' for tag in task.tags])}\n"  # noqa: WPS221, WPS336, E501
+            tasks_text += "<i>Теги:</i>\n    ◦ "
+            tasks_text += f"{'\n    ◦ '.join([f'<code>{tag}</code>' for tag in task.tags])}\n"  # noqa: WPS221, E501
     return tasks_text
