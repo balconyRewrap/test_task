@@ -19,14 +19,14 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from database.database_manager import get_not_completed_tasks_by_user_id, mark_task_completed
-from database.models import Task
-from handlers.basic_handlers.basic_keyboard import give_menu_keyboard
 from handlers.basic_handlers.basic_state import start_menu
+from handlers.basic_handlers.basic_keyboard import give_menu_keyboard
 from handlers.tasks_handlers.tasks_utils import (
     get_total_pages_from_tasks_by_page_size,
     paginate_tasks,
     prepare_tasks_text,
 )
+from database.models import Task
 
 list_tasks_router: Router = Router()
 
@@ -212,14 +212,13 @@ async def _generate_keyboard(
     keyboard = []
     task_number_on_page = 1
     for task_item in tasks:
-        task_text = f"Задача №{task_number_on_page} выполнена"
         task_buttons = [
-            InlineKeyboardButton(text=task_text, callback_data=f"task_is_completed:{task_item.id}"),
+            InlineKeyboardButton(text=f"Задача №{task_number_on_page} выполнена", callback_data=f"task_is_completed:{task_item.id}"),
         ]
         task_number_on_page += 1
         keyboard.append(task_buttons)
     if not is_single_page:
-        navigator_button = [InlineKeyboardButton(text="Просмотр страниц", callback_data="noop")]
+        navigator_button = [InlineKeyboardButton(text="Навигация по страницам", callback_data="noop")]
         keyboard.append(navigator_button)
 
         nav_buttons = [
