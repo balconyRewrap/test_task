@@ -27,7 +27,7 @@ from sqlalchemy.orm import joinedload
 from database.models import Base, Tag, Task, User
 
 
-def is_env_valid():
+def is_env_valid() -> bool:
     """
     Validates the environment configuration by checking the presence and types of required environment variables.
 
@@ -47,7 +47,7 @@ def is_env_valid():
     required_variables = [
         ("API_TOKEN", str),
         ("REDIS_HOST", str),
-        ("REDIS_PORT", int),
+        ("REDIS_PORT", str),
         ("MARIADB_HOST", str),
         ("MARIADB_USER", str),
         ("MARIADB_PASSWORD", str),

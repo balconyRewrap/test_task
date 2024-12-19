@@ -19,7 +19,7 @@ registration_router: Router = Router()
 
 
 @registration_router.message(RegistrationStates.awaiting_name)
-async def handle_name(message: types.Message, state: FSMContext):
+async def handle_name(message: types.Message, state: FSMContext) -> None:
     """
     Handles the user's name input during the registration process.
 
@@ -46,7 +46,7 @@ async def handle_name(message: types.Message, state: FSMContext):
 
 
 @registration_router.message(RegistrationStates.awaiting_phone)
-async def handle_phone(message: types.Message, state: FSMContext):
+async def handle_phone(message: types.Message, state: FSMContext) -> None:
     """
     Handles the phone number input from the user during the registration process.
 
@@ -84,7 +84,13 @@ async def _is_valid_phone(phone: str) -> bool:
     return bool(re.match(number_regex, phone))
 
 
-async def _complete_registration(user_id: int, user_name: str, phone: str, message: types.Message, state: FSMContext):
+async def _complete_registration(
+    user_id: int,
+    user_name: str,
+    phone: str,
+    message: types.Message,
+    state: FSMContext,
+) -> None:
     """Completes the registration by storing user data and sending confirmation."""
     await add_user(user_id, user_name, phone)
     user_data = await get_user_by_id(user_id)

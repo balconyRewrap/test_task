@@ -32,7 +32,7 @@ add_task_router: Router = Router()
 
 
 @add_task_router.message(start_menu, F.text.casefold() == "добавить задачу")
-async def add_task_handler(message: Message, state: FSMContext):
+async def add_task_handler(message: Message, state: FSMContext) -> None:
     """
     Handles the addition of a new task.
 
@@ -47,7 +47,7 @@ async def add_task_handler(message: Message, state: FSMContext):
 
 
 @add_task_router.message(AddTaskStates.waiting_name)
-async def handle_name(message: Message, state: FSMContext):
+async def handle_name(message: Message, state: FSMContext) -> None:
     """
     Handles the task name input from the user.
 
@@ -76,7 +76,7 @@ async def handle_name(message: Message, state: FSMContext):
 
 
 @add_task_router.message(AddTaskStates.waiting_tags)
-async def handle_tags(message: Message, state: FSMContext):
+async def handle_tags(message: Message, state: FSMContext) -> None:
     """
     Handles the addition of tags to a task.
 
@@ -108,7 +108,7 @@ async def handle_tags(message: Message, state: FSMContext):
 
 
 @add_task_router.callback_query(F.data == 'end_tags')
-async def end_tags_callback(query: CallbackQuery, state: FSMContext):
+async def end_tags_callback(query: CallbackQuery, state: FSMContext) -> None:
     """
     Handles the callback when the user ends the tag selection process.
 

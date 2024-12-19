@@ -20,7 +20,6 @@ class User(Base):
         return f"User(id={self.id}, name={self.name}, phone={self.phone})"
 
 
-
 class Task(Base):
     __tablename__ = 'tasks'
 
@@ -35,8 +34,6 @@ class Task(Base):
         return str(self.name)
 
 
-
-
 class Tag(Base):
     __tablename__ = 'tags'
 
@@ -49,7 +46,6 @@ class Tag(Base):
 
     def __repr__(self):
         return f"Tag(id={self.id}, name={self.name})"
-
 
 
 class TaskTag(Base):

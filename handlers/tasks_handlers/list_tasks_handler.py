@@ -85,7 +85,7 @@ async def list_task_handler(  # noqa: WPS217
 
 
 @list_tasks_router.callback_query(start_menu, F.data.startswith("task_is_completed"))
-async def task_is_completed_handler(callback_query: CallbackQuery, state: FSMContext):
+async def task_is_completed_handler(callback_query: CallbackQuery, state: FSMContext) -> None:
     """
     Handles the completion of a task when a callback query is received.
 
@@ -115,7 +115,7 @@ async def task_is_completed_handler(callback_query: CallbackQuery, state: FSMCon
 
 
 @list_tasks_router.callback_query(F.data == "next_page")
-async def next_page_button_handler(callback_query: CallbackQuery, state: FSMContext):
+async def next_page_button_handler(callback_query: CallbackQuery, state: FSMContext) -> None:
     """
     Handles the callback query for navigating to the next page of tasks.
 
@@ -141,7 +141,7 @@ async def next_page_button_handler(callback_query: CallbackQuery, state: FSMCont
 
 
 @list_tasks_router.callback_query(F.data == "prev_page")
-async def prev_page_button_handler(callback_query: CallbackQuery, state: FSMContext):
+async def prev_page_button_handler(callback_query: CallbackQuery, state: FSMContext) -> None:
     """
     Handles the callback query for navigating to the previous page of tasks.
 
@@ -230,7 +230,7 @@ async def _send_or_edit_message(
     tasks_text: str,
     keyboard: InlineKeyboardMarkup,
     is_called_from_callback: bool,
-):
+) -> None:
     """
     Send or edit a message based on the presence of a user callback ID.
 

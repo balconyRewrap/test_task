@@ -110,7 +110,7 @@ async def handle_query(message: Message, state: FSMContext) -> None:
 
 
 @search_tasks_router.message(SearchStates.waiting_for_tags)
-async def handle_tags(message: Message, state: FSMContext):
+async def handle_tags(message: Message, state: FSMContext) -> None:
     """
     Handles the user's tags input during the task search process.
 

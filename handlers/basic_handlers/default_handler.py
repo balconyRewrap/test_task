@@ -14,7 +14,7 @@ default_router: Router = Router()
 
 
 @default_router.message()
-async def handle_all_other_messages(message: types.Message, state: FSMContext):
+async def handle_all_other_messages(message: types.Message, state: FSMContext) -> None:
     """
     Handles all messages that do not match any specific command.
 

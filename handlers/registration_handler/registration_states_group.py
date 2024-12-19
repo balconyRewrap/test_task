@@ -9,7 +9,6 @@ Classes:
             registered (State): Represents the state where the user has completed the registration process.
 
 """
-
 from aiogram.fsm.state import State, StatesGroup
 
 

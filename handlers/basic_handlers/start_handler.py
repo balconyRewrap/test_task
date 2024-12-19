@@ -21,7 +21,7 @@ start_router: Router = Router()
 
 @start_router.message(F.text.casefold() == "главное меню")
 @start_router.message(Command('start'))
-async def cmd_start(message: types.Message, state: FSMContext):
+async def cmd_start(message: types.Message, state: FSMContext) -> None:
     """
     Handles the /start command for initiating the user registration process.
 
