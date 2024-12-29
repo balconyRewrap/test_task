@@ -74,11 +74,33 @@ async def _reset_all_states() -> None:
     if keys:
         await redis_client.delete(*keys)
 
+async def fetch_all_from_redis() -> dict:
+    # Создаем подключение к Redis
+
+    # Получаем все ключи в базе данных Redis
+    keys = await redis_client.keys('*')
+
+    # Словарь для хранения всех значений
+    data = {}
+
+    # Получаем значения для каждого ключа
+    for key in keys:
+        value = await redis_client.get(key)
+        # Пытаемся декодировать значение, если оно в байтовом формате
+        if isinstance(value, bytes):
+            value = value.decode('utf-8')
+        data[key] = value
+
+    # Закрываем подключение
+    await redis_client.close()
+    print(data)
+    return data
 
 async def _main() -> None:
-    await _reset_all_states()
-    await init_db()
-    await dp.start_polling(bot)
+    await fetch_all_from_redis()
+    # await _reset_all_states()
+    # await init_db()
+    # await dp.start_polling(bot)
 
 
 if __name__ == '__main__':

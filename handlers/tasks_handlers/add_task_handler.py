@@ -97,7 +97,7 @@ async def handle_tags(message: Message, state: FSMContext) -> None:
         await message.answer("Тег не может быть пустым. Пожалуйста, введите тег для задачи.")
         return
     state_data = await state.get_data()
-    existed_tags = state_data.get("tags", [])
+    existed_tags: list = state_data.get("tags", [])
     existed_tags.append(tag)
     await state.update_data(tags=existed_tags)
     answer_text = (
@@ -134,7 +134,7 @@ async def end_tags_callback(query: CallbackQuery, state: FSMContext) -> None:
     await _clean_state(state)
     if query.message:
         await query.message.answer("Задача успешно добавлена!", reply_markup=await give_menu_keyboard(user_id))
-    await state.clear()
+    # await state.clear()
     await state.set_state(start_menu)
 
 
